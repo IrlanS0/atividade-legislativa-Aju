@@ -1,0 +1,6 @@
+node_modules/
+.vercel/
+.env*
+dist/data.js.tmp
+dist/data.js
+data/sapl-data.js.gz.tmp

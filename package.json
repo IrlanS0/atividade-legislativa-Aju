@@ -1,0 +1,16 @@
+{
+  "name": "atividade-legislativa-aju",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "collect": "node scripts/collect.mjs",
+    "build": "node scripts/build.mjs",
+    "precollect": "npm run build"
+  },
+  "dependencies": {
+    "entities": "^8.0.0"
+  }
+}

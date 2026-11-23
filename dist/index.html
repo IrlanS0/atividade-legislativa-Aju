@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Consulte e compare matérias dos vereadores de Aracaju no biênio 2025–2026.">
+<title>Radar Legislativo | Aracaju</title>
+<link rel="stylesheet" href="style.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<aside class="rail">
+  <a class="brand" href="#inicio"><span class="mark" aria-hidden="true">▥</span><span>Radar Legislativo<small>ARACAJU · SE</small></span></a>
+  <nav aria-label="Navegação principal">
+    <a href="#inicio" class="active"><span aria-hidden="true">▦</span> Visão geral</a>
+    <a href="#materias"><span aria-hidden="true">▤</span> Matérias</a>
+    <a href="#fontes"><span aria-hidden="true">◎</span> Fontes e cobertura</a>
+  </nav>
+  <div class="railfoot"><span>44ª LEGISLATURA</span><strong>Biênio 2025–2026</strong></div>
+</aside>
+<main id="inicio">
+  <header class="top"><span>ARACAJU <b>/</b> PROCESSO LEGISLATIVO</span><a href="https://www.aracaju.se.leg.br/processo-legislativo/parlamentares-da-44a-legislatura-1o-bienio-2025-2026" target="_blank" rel="noopener">Portal da Câmara</a></header>
+  <div class="content">
+    <section class="hero" aria-labelledby="titulo"><div><p class="eyebrow"><span></span> PAINEL DE ACOMPANHAMENTO</p><h1 id="titulo">Atividade legislativa</h1><p>Acompanhe e compare as matérias dos vereadores de Aracaju.</p></div><div class="hero-period"><span>1º BIÊNIO</span><strong>2025–2026</strong></div></section>
+    <section class="filters panel" aria-labelledby="filtros"><div class="filter-header"><div><h2 id="filtros">Filtrar consulta</h2><p>Escolha um ou mais vereadores para analisar os registros.</p></div><button id="clear" class="link" type="button" disabled>Limpar filtros</button></div>
+      <div class="fields">
+        <div class="people"><label id="people-label">Vereadores</label><button id="people-button" type="button" aria-labelledby="people-label people-value" aria-controls="people-menu" aria-expanded="false"><span id="people-value">Selecionar vereadores</span><i></i></button>
+          <div id="people-menu" class="menu" hidden><input id="people-search" type="search" placeholder="Buscar por nome ou partido" aria-label="Buscar vereador"><div id="people-list"></div><button id="people-done" class="primary" type="button">Concluir seleção</button></div>
+        </div>
+        <label>Ano da matéria<span class="select"><select id="year"><option value="">2025 e 2026</option><option>2025</option><option>2026</option></select></span></label>
+        <label>Tipo de matéria<span class="select"><select id="type"><option value="">Todos os tipos</option></select></span></label>
+      </div>
+      <div id="selected" class="chips" hidden></div>
+      <div id="sapl-links" class="sapl-links" hidden>
+        <span>Consultar proposições no SAPL</span>
+        <ul id="sapl-people" aria-label="Consultas oficiais por vereador"></ul>
+        <button id="refresh" class="refresh" type="button">Atualizar pelo SAPL</button>
+      </div>
+      <p id="refresh-status" role="status" hidden></p>
+    </section>
+    <div class="section-heading"><div><h2>Visão geral</h2><p id="summary" aria-live="polite">Selecione vereadores para ver os indicadores.</p></div><span class="tag">Dados do SAPL</span></div>
+    <section class="stats" aria-label="Indicadores">
+      <div class="panel stat"><span class="tile" aria-hidden="true">▤</span><div><p>Matérias identificadas</p><strong id="total">—</strong></div></div>
+      <div class="panel stat"><span class="tile blue" aria-hidden="true">▥</span><div><p>Projetos de lei</p><strong id="bills">—</strong></div></div>
+      <div class="panel stat"><span class="tile amber" aria-hidden="true">♙</span><div><p>Vereadores selecionados</p><strong id="authors">—</strong></div></div>
+    </section>
+    <section class="charts" aria-label="Gráficos">
+      <article class="panel chart"><h3>Matérias por vereador</h3><p>Compare as matérias identificadas no recorte.</p><div id="bar-chart"></div></article>
+      <article class="panel chart"><h3>Distribuição por tipo</h3><p>Veja a proporção de cada tipo de matéria.</p><div id="pie-chart"></div></article>
+    </section>
+    <section id="materias" class="panel records"><div class="record-head"><div><h2>Matérias legislativas</h2><p>Confira a autoria e o estágio registrado na fonte.</p></div><button id="export" type="button" disabled>Baixar CSV</button></div>
+      <p id="empty-table" class="empty-table">Selecione vereadores para consultar as matérias.</p>
+      <div id="table-wrap" hidden><div class="scroll"><table><thead><tr><th scope="col">Matéria</th><th scope="col">Autoria</th><th scope="col">Estágio registrado</th><th scope="col">Fonte</th></tr></thead><tbody id="rows"></tbody></table></div><div class="pagination"><span id="page-info"></span><button id="prev" type="button">Anterior</button><button id="next" type="button">Próxima</button></div></div>
+    </section>
+    <section id="fontes" class="coverage"><h2>Fontes e cobertura</h2><p id="coverage-text"></p><p>O ano se refere à numeração oficial da matéria. Cada matéria é contada uma vez no total e uma vez para cada autor selecionado no gráfico de barras. O estágio exibido é o documentado na fonte consultada. A ausência de registros significa que nenhuma matéria foi localizada nesta base.</p><p id="coverage-date"></p><div class="source-links"><a href="https://leg.cmaju.com.br/" target="_blank" rel="noopener">Relação oficial de vereadores</a><a href="https://www.aracaju.se.leg.br/processo-legislativo/relatorios-de-atividade-parlamenta" target="_blank" rel="noopener">Relatórios de atividade parlamentar</a></div></section>
+    <footer>Radar Legislativo de Aracaju</footer>
+  </div>
+</main>
+</body>
+</html>
