@@ -1,5 +1,6 @@
 import { catalog } from './data.js';
 import { attendance } from './attendance.js';
+import { payroll } from './payroll.js';
 
 const $ = id => document.getElementById(id);
 const make = (tag, value, className) => {
@@ -9,6 +10,7 @@ const make = (tag, value, className) => {
   return element;
 };
 const format = new Intl.NumberFormat('pt-BR');
+const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const percent = new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 1 });
 const collator = new Intl.Collator('pt-BR');
 const normalize = s => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
@@ -155,6 +157,34 @@ function emptyChart(symbol, message) {
   icon.setAttribute('aria-hidden', 'true');
   box.append(icon, make('div', message));
   return box;
+}
+
+function renderPayroll() {
+  const year = $('year').value;
+  const picker = $('payroll-month');
+  const months = payroll.filter(report => !year || String(report.year) === year);
+  const lastMonth = picker.value;
+  picker.replaceChildren(...months.map(report => new Option(report.label, report.id)));
+  if (months.some(report => report.id === lastMonth)) picker.value = lastMonth;
+  const report = months.find(item => item.id === picker.value);
+  picker.disabled = !report;
+  const source = $('payroll-source');
+  source.href = report?.source ?? 'https://www.aracaju.se.leg.br/transparencia/gestao-de-pessoas/Folha%20de%20Pagamento';
+  const results = $('payroll-results');
+  if (!report || !selected.size) {
+    results.replaceChildren(make('p', report ? 'Selecione vereadores para consultar os valores.'
+      : 'Nenhuma folha deste ano foi importada para o painel.', 'empty-table'));
+    return;
+  }
+  const list = make('dl', undefined, 'payroll-list');
+  for (const person of people.filter(person => selected.has(person.id))) {
+    const row = make('div');
+    const cents = report.grossCents[person.id];
+    row.append(make('dt', person.name), make('dd', Number.isInteger(cents)
+      ? money.format(cents / 100) : 'Sem registro na folha do mês'));
+    list.append(row);
+  }
+  results.replaceChildren(list);
 }
 
 function renderAttendance() {
@@ -634,6 +664,7 @@ function update() {
   renderDecisionCharts();
   renderTable();
   renderAttendance();
+  renderPayroll();
 }
 
 $('people-button').addEventListener('click', () => setMenu($('people-menu').hidden));
@@ -647,6 +678,7 @@ document.addEventListener('click', event => {
 });
 $('year').addEventListener('change', update);
 $('attendance-period').addEventListener('change', renderAttendance);
+$('payroll-month').addEventListener('change', renderPayroll);
 $('type').addEventListener('change', update);
 $('refresh').addEventListener('click', refresh);
 $('check-decisions').addEventListener('click', verifyDecisionBatch);

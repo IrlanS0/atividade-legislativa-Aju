@@ -15,6 +15,7 @@
     <a href="#inicio" class="active"><span aria-hidden="true">▦</span> Visão geral</a>
     <a href="#decisoes"><span aria-hidden="true">◔</span> Decisões</a>
     <a href="#frequencia"><span aria-hidden="true">▥</span> Frequência</a>
+    <a href="#remuneracao"><span aria-hidden="true">▤</span> Remuneração</a>
     <a href="#materias"><span aria-hidden="true">▤</span> Matérias</a>
     <a href="#fontes"><span aria-hidden="true">◎</span> Fontes e cobertura</a>
   </nav>
@@ -69,6 +70,14 @@
       <p id="attendance-sessions" role="status" hidden></p>
       <div id="attendance-chart"></div>
       <p class="attendance-source">As licenças são registradas em uma categoria própria. <a id="attendance-source" href="https://www.aracaju.se.leg.br/processo-legislativo/presenca-dos-parlamentares" target="_blank" rel="noopener">Planilha oficial de frequência</a></p>
+    </section>
+    <section id="remuneracao" class="panel chart attendance-panel" aria-labelledby="payroll-title">
+      <div class="record-head">
+        <div><h2 id="payroll-title">Remuneração bruta na folha do mês</h2><p>Valor bruto registrado na folha mensal para os vereadores selecionados.</p></div>
+        <label for="payroll-month">Mês da folha<span class="select"><select id="payroll-month"></select></span></label>
+      </div>
+      <div id="payroll-results" aria-live="polite"></div>
+      <p class="attendance-source"><a id="payroll-source" href="https://www.aracaju.se.leg.br/transparencia/gestao-de-pessoas/Folha%20de%20Pagamento" target="_blank" rel="noopener">Consultar folha oficial</a></p>
     </section>
     <section id="materias" class="panel records"><div class="record-head"><div><h2>Matérias legislativas</h2><p>Confira a autoria, a decisão e o estágio registrado na fonte.</p></div><button id="export" type="button" disabled>Baixar CSV</button></div>
       <p id="decision-status" class="visually-hidden" role="status"></p>
