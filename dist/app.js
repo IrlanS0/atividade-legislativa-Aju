@@ -24,16 +24,30 @@ const decisions = {
 const decisionKeys = Object.keys(decisions);
 const checkedDecisions = new Map();
 const checkingDecisions = new Set();
+const attemptedDecisions = new Set();
 const selected = new Set();
 const live = new Map();
+const liveReports = new Map();
 const missing = new Set((catalog.missing ?? []).map(({ id, year }) => id + '/' + year));
+const stale = new Set((catalog.stale ?? []).map(({ id, year }) => id + '/' + year));
+const failedQueries = new Set();
+const publishedByQuery = new Map();
+for (const record of catalog.records) {
+  for (const id of record.authors) {
+    const key = id + '/' + record.year;
+    if (!publishedByQuery.has(key)) publishedByQuery.set(key, []);
+    publishedByQuery.get(key).push(record);
+  }
+}
 const pageSize = 12;
+const verificationBatchSize = 16;
 let page = 1;
 let filtered = [];
 let refreshing = false;
+let verifyingBatch = false;
 
 for (const type of types) $('type').add(new Option(type, type));
-$('coverage-text').textContent = 'A fonte principal é o SAPL da Câmara de Aracaju. Quando uma consulta por vereador e ano fica pendente, o painel pode mostrar matérias já verificadas em atas e notícias oficiais. A fonte aparece em cada linha.';
+$('coverage-text').textContent = 'O painel cruza a busca de matérias do SAPL com o relatório anual oficial. Matérias do relatório podem ter a situação pendente de consulta. As linhas sinalizadas usam a base anterior em pelo menos uma autoria selecionada.';
 $('coverage-date').textContent = 'Base do SAPL coletada em ' + catalog.updated + '.';
 
 function missingYears(id) {
@@ -41,6 +55,34 @@ function missingYears(id) {
   return (chosen ? [chosen] : ['2025', '2026']).filter(year => {
     const key = id + '/' + year;
     return missing.has(key) && !live.has(key);
+  });
+}
+
+function previousYears(id) {
+  const chosen = $('year').value;
+  return (chosen ? [chosen] : ['2025', '2026']).filter(year => {
+    const key = id + '/' + year;
+    return failedQueries.has(key) || retainedDetails(id, year) || (!live.has(key) && stale.has(key));
+  });
+}
+
+function confirmedByReport(record, id) {
+  return record.sourceLabel === 'Relatório do SAPL'
+    && liveReports.get(String(record.year))?.byAuthor.get(id)?.has(record.id);
+}
+
+function retainedDetails(id, year) {
+  const latest = live.get(id + '/' + year);
+  return latest?.rows.some(record => latest.preserved.has(record.id) && !confirmedByReport(record, id));
+}
+
+function usesEarlierData(record) {
+  return record.authors.some(id => {
+    if (!selected.has(id)) return false;
+    const key = id + '/' + record.year;
+    const latest = live.get(key);
+    if (confirmedByReport(record, id)) return false;
+    return failedQueries.has(key) || (latest ? latest.preserved.has(record.id) : stale.has(key));
   });
 }
 
@@ -153,8 +195,12 @@ function renderPie(target, entries, total) {
 function renderDecisionCharts() {
   const bars = $('decision-bars');
   const pie = $('decision-pie');
+  const button = $('check-decisions');
+  button.disabled = verifyingBatch || !filtered.some(record => record.id
+    && decisionFor(record).decision === 'unverified' && !checkingDecisions.has(record.id));
   if (!filtered.length) {
     const message = selected.size ? 'Nenhuma matéria no recorte selecionado.' : 'Selecione vereadores para ver as decisões.';
+    $('decision-coverage').textContent = message;
     bars.replaceChildren(emptyChart('▥', message));
     pie.replaceChildren(emptyChart('◔', message));
     return;
@@ -170,6 +216,8 @@ function renderDecisionCharts() {
       if (counts) counts[decision]++;
     }
   }
+  $('decision-coverage').textContent = format.format(filtered.length - totals.unverified)
+    + ' de ' + format.format(filtered.length) + ' matérias com verificação no recorte.';
   const groups = [...byAuthor].map(([id, counts]) => ({
     id, counts, sum: decisionKeys.reduce((sum, key) => sum + counts[key], 0),
   }));
@@ -269,15 +317,13 @@ function fillDecisionCell(cell, record) {
   cell.append(button);
 }
 
-async function verifyDecision(cell, record, button) {
-  if (checkingDecisions.has(record.id)) return;
+async function checkDecision(record) {
   checkingDecisions.add(record.id);
-  button.disabled = true;
-  button.textContent = 'Verificando…';
   let verified = { decision: 'unverified' };
   try {
     const url = '/api/decisao?' + new URLSearchParams({ materia: record.id });
-    const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
+    const response = await fetch(url, { signal: AbortSignal.timeout(21000) });
+    if (response.status === 429) verified.rateLimited = true;
     const result = response.ok ? await response.json() : null;
     if (result && Object.hasOwn(decisions, result.decision)) verified = result;
   } catch {
@@ -285,6 +331,14 @@ async function verifyDecision(cell, record, button) {
   }
   if (verified.decision !== 'unverified') checkedDecisions.set(record.id, verified);
   checkingDecisions.delete(record.id);
+  return verified;
+}
+
+async function verifyDecision(cell, record, button) {
+  if (checkingDecisions.has(record.id)) return;
+  button.disabled = true;
+  button.textContent = 'Verificando…';
+  const verified = await checkDecision(record);
   const visibleCell = document.getElementById('decision-' + record.id);
   if (visibleCell) {
     const restoreFocus = cell === visibleCell && (document.activeElement === button || document.activeElement === document.body);
@@ -293,6 +347,51 @@ async function verifyDecision(cell, record, button) {
   }
   $('decision-status').textContent = record.type + ' ' + record.number + '/' + record.year + '. ' + decisions[verified.decision].label + '.';
   renderDecisionCharts();
+}
+
+async function verifyDecisionBatch() {
+  if (verifyingBatch) return;
+  const pending = filtered.filter(record => record.id && decisionFor(record).decision === 'unverified'
+    && !checkingDecisions.has(record.id));
+  const unattempted = pending.filter(record => !attemptedDecisions.has(record.id));
+  const batch = (unattempted.length ? unattempted : pending).slice(0, verificationBatchSize);
+  if (!batch.length) return;
+  verifyingBatch = true;
+  $('check-decisions').disabled = true;
+  const notice = $('batch-status');
+  notice.hidden = false;
+  let resolved = 0;
+  let completed = 0;
+  let rateLimited = false;
+  const announce = () => {
+    notice.textContent = 'Consultadas ' + completed + ' de ' + batch.length + ' matérias nesta rodada.';
+  };
+  announce();
+  for (let start = 0; start < batch.length; start += 2) {
+    const pair = batch.slice(start, start + 2);
+    await Promise.all(pair.map(async record => {
+      if (checkingDecisions.has(record.id) || decisionFor(record).decision !== 'unverified') return;
+      attemptedDecisions.add(record.id);
+      const result = await checkDecision(record);
+      if (result.decision !== 'unverified') resolved++;
+      rateLimited ||= Boolean(result.rateLimited);
+      completed++;
+    }));
+    announce();
+    if (rateLimited) break;
+  }
+  verifyingBatch = false;
+  notice.textContent = resolved + ' de ' + completed + ' consultas concluíram a verificação nesta rodada. '
+    + (completed - resolved) + ' ficaram inconclusivas.'
+    + (rateLimited ? ' O SAPL limitou as consultas desta rodada.' : '');
+  const focused = document.activeElement?.closest?.('.decision-cell');
+  const focusedId = focused?.id;
+  renderDecisionCharts();
+  renderTable();
+  if (focusedId) {
+    const current = document.getElementById(focusedId);
+    (current?.querySelector('button') ?? current)?.focus();
+  }
 }
 
 function renderTable() {
@@ -324,6 +423,7 @@ function renderTable() {
     link.target = '_blank';
     link.rel = 'noopener';
     source.append(link);
+    if (usesEarlierData(record)) source.append(make('span', 'Base anterior', 'source-note'));
     row.append(matter, make('td', authors(record)), decision, make('td', record.stage), source);
     return row;
   }));
@@ -342,11 +442,21 @@ function recordsForSelection() {
     const remaining = record.authors.filter(id => !live.has(id + '/' + record.year));
     if (remaining.length) records.set(record.id, { ...record, authors: remaining });
   }
-  for (const [key, rows] of live) {
+  for (const [key, { rows, preserved }] of live) {
     const id = key.split('/')[0];
     for (const record of rows) {
-      const authors = records.get(record.id)?.authors ?? [];
-      records.set(record.id, { ...record, authors: [...authors, id] });
+      const previous = records.get(record.id);
+      const details = previous && preserved.has(record.id) ? previous : record;
+      records.set(record.id, { ...details, authors: [...(previous?.authors ?? []), id] });
+    }
+  }
+  for (const { rows } of liveReports.values()) {
+    for (const record of rows) {
+      const previous = records.get(record.id);
+      records.set(record.id, {
+        ...(previous ?? record),
+        authors: [...new Set([...(previous?.authors ?? []), ...record.authors])],
+      });
     }
   }
   const keyOf = record => JSON.stringify([record.type, record.year, record.number]);
@@ -365,6 +475,21 @@ function recordsForSelection() {
   return [...records.values()];
 }
 
+function saveLiveResults(key, rows, total, year) {
+  if (!Array.isArray(rows) || total !== rows.length) return false;
+  const present = new Set();
+  for (const record of rows) {
+    if (!record || record.year !== Number(year) || typeof record.id !== 'string'
+      || !/^\d{1,8}$/.test(record.id) || present.has(record.id)) return false;
+    present.add(record.id);
+  }
+  const previous = live.get(key)?.rows ?? publishedByQuery.get(key) ?? [];
+  const retained = previous.filter(record => !present.has(record.id));
+  live.set(key, { rows: [...rows, ...retained], preserved: new Set(retained.map(record => record.id)) });
+  failedQueries.delete(key);
+  return true;
+}
+
 async function refresh() {
   if (refreshing || !selected.size) return;
   const chosenYear = $('year').value;
@@ -375,27 +500,51 @@ async function refresh() {
   $('refresh-status').hidden = false;
   $('refresh-status').textContent = 'Consultando dados no SAPL…';
   let successes = 0;
-  for (let start = 0; start < queries.length; start += 4) {
-    await Promise.all(queries.slice(start, start + 4).map(async ({ id, year }) => {
+  let rateLimited = false;
+  await Promise.all(years.map(async year => {
+    try {
+      const response = await fetch('/api/sapl-relatorio?' + new URLSearchParams({ ano: year }),
+        { signal: AbortSignal.timeout(13000) });
+      rateLimited ||= response.status === 429;
+      if (!response.ok) return;
+      const { rows, total } = await response.json();
+      if (!Array.isArray(rows) || !rows.length || total !== rows.length
+          || rows.some(record => record.year !== Number(year) || !record.authors?.every(id => byPerson.has(id)))) return;
+      const byAuthor = new Map();
+      for (const record of rows) {
+        for (const id of record.authors) {
+          if (!byAuthor.has(id)) byAuthor.set(id, new Set());
+          byAuthor.get(id).add(record.id);
+        }
+      }
+      liveReports.set(year, { rows, byAuthor });
+    } catch {
+      // The last available report remains in use if this request fails.
+    }
+  }));
+  for (let start = 0; !rateLimited && start < queries.length; start += 2) {
+    await Promise.all(queries.slice(start, start + 2).map(async ({ id, year }) => {
+      const key = id + '/' + year;
       try {
         const params = new URLSearchParams({ vereador: id, ano: year });
         const response = await fetch('/api/sapl?' + params, { signal: AbortSignal.timeout(48000) });
-        if (!response.ok) return;
-        const { rows } = await response.json();
-        if (!Array.isArray(rows)) return;
-        live.set(id + '/' + year, rows);
+        rateLimited ||= response.status === 429;
+        if (!response.ok) throw new Error('Consulta indisponível');
+        const { rows, total } = await response.json();
+        if (!saveLiveResults(key, rows, total, year)) throw new Error('Resposta incompleta');
         successes++;
       } catch {
-        // Keep the last successful result for this author and year.
+        failedQueries.add(key);
       }
     }));
+    if (rateLimited) break;
   }
   refreshing = false;
-  $('refresh-status').textContent = successes === queries.length
-    ? 'Dados atualizados nesta sessão.'
-    : successes
-      ? 'Atualização parcial. As demais consultas usam os últimos dados disponíveis.'
-      : 'O painel não conseguiu consultar o SAPL. Exibindo os últimos dados disponíveis.';
+  const retainedQueries = queries.filter(({ id, year }) => retainedDetails(id, year)).length;
+  $('refresh-status').textContent = 'Consultas concluídas no SAPL: ' + successes + ' de ' + queries.length + '.'
+    + (successes < queries.length ? ' Consultas com falha mantêm os últimos dados disponíveis.' : '')
+    + (retainedQueries ? ' Resultados com lacunas mantêm as matérias ausentes na base anterior.' : '')
+    + (rateLimited ? ' O SAPL limitou as consultas desta rodada.' : '');
   update();
 }
 
@@ -404,7 +553,7 @@ function update() {
   const year = $('year').value;
   const type = $('type').value;
   $('clear').disabled = !selected.size && !year && !type;
-  const records = live.size || missing.size ? recordsForSelection() : catalog.records;
+  const records = live.size || liveReports.size || missing.size ? recordsForSelection() : catalog.records;
   const availableTypes = [...new Set(records.map(r => r.type))].sort(collator.compare);
   for (const newType of availableTypes) {
     if (!types.includes(newType)) {
@@ -414,12 +563,14 @@ function update() {
   }
   $('refresh').disabled = refreshing || !selected.size;
   filtered = records.filter(r => (!year || String(r.year) === year) && (!type || r.type === type) && r.authors.some(id => selected.has(id)));
-  if (live.size || missing.size) filtered.sort((a, b) => b.year - a.year || collator.compare(a.type, b.type) || b.number - a.number);
+  if (live.size || liveReports.size || missing.size) filtered.sort((a, b) => b.year - a.year || collator.compare(a.type, b.type) || b.number - a.number);
   const active = Boolean(selected.size);
   const pending = [...selected].flatMap(id => missingYears(id).map(y => byPerson.get(id).name + ' (' + y + ')'));
+  const prior = [...selected].flatMap(id => previousYears(id).map(y => byPerson.get(id).name + ' (' + y + ')'));
   const hasData = active && (filtered.length > 0 || pending.length < selected.size * (year ? 1 : 2));
   $('summary').textContent = !active ? 'Selecione vereadores para ver os indicadores.'
     : pending.length ? 'Consultas pendentes no SAPL: ' + pending.join(', ') + '.'
+    : prior.length ? 'Resultados com dados da base anterior: ' + prior.join(', ') + '.'
     : 'Indicadores das matérias localizadas no SAPL para a seleção atual.';
   $('total').textContent = hasData ? format.format(filtered.length) : '—';
   $('bills').textContent = hasData ? format.format(filtered.filter(r => r.type.startsWith('Projeto de Lei')).length) : '—';
@@ -442,20 +593,23 @@ document.addEventListener('click', event => {
 $('year').addEventListener('change', update);
 $('type').addEventListener('change', update);
 $('refresh').addEventListener('click', refresh);
+$('check-decisions').addEventListener('click', verifyDecisionBatch);
 $('clear').addEventListener('click', () => {
   selected.clear();
   $('year').value = '';
   $('type').value = '';
   if (!refreshing) $('refresh-status').hidden = true;
+  if (!verifyingBatch) $('batch-status').hidden = true;
   update();
 });
 $('prev').addEventListener('click', () => { page--; renderTable(); });
 $('next').addEventListener('click', () => { page++; renderTable(); });
 $('export').addEventListener('click', () => {
-  const lines = [['Tipo', 'Número', 'Ano', 'Assunto', 'Autoria', 'Decisão', 'Data da decisão', 'Estágio registrado', 'Fonte'],
+  const lines = [['Tipo', 'Número', 'Ano', 'Assunto', 'Autoria', 'Decisão', 'Data da decisão', 'Estágio registrado', 'Fonte', 'Cobertura'],
     ...filtered.map(r => {
       const { decision, decisionDate } = decisionFor(r);
-      return [r.type, r.number, r.year, r.subject, authors(r), decisions[decision].label, dateLabel(decisionDate), r.stage, r.source];
+      return [r.type, r.number, r.year, r.subject ?? '', authors(r), decisions[decision].label, dateLabel(decisionDate), r.stage, r.source,
+        usesEarlierData(r) ? 'Base anterior' : ''];
     })];
   const quote = value => {
     const text = String(value);

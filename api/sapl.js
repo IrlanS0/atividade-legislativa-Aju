@@ -1,5 +1,6 @@
 import { catalog } from '../dist/data.js';
-import { authorCode, fetchYear, readHtml, years } from '../lib/sapl.js';
+import { authorCode, fetchYear, years } from '../lib/sapl.js';
+import { saplClient } from '../lib/sapl-http.js';
 
 const people = new Map(catalog.people.map(person => [person.id, person]));
 
@@ -19,18 +20,12 @@ export default async function handler(request, response) {
 
   const deadline = AbortSignal.timeout(43_000);
   try {
-    const rows = await fetchYear(authorCode(person), year, async url => {
-      const result = await fetch(url, {
-        redirect: 'error',
-        signal: AbortSignal.any([deadline, AbortSignal.timeout(9_000)]),
-        headers: { Accept: 'text/html' },
-      });
-      if (!result.ok) throw new Error('SAPL HTTP ' + result.status);
-      return readHtml(await result.arrayBuffer());
-    }, person.saplAuthorName);
-    return response.status(200).json({ rows, updatedAt: new Date().toISOString() });
+    const rows = await fetchYear(authorCode(person), year, saplClient(deadline), person.saplAuthorName, { signal: deadline });
+    response.setHeader('Vercel-CDN-Cache-Control', 'public, s-maxage=120');
+    return response.status(200).json({ rows, total: rows.length, updatedAt: new Date().toISOString() });
   } catch (error) {
     console.error('Falha na consulta ao SAPL', error.message);
-    return response.status(502).json({ error: 'O painel não conseguiu concluir a consulta ao SAPL.' });
+    return response.status(error.status === 429 ? 429 : 502)
+      .json({ error: 'O painel não conseguiu concluir a consulta ao SAPL.' });
   }
 }

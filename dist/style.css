@@ -80,6 +80,9 @@ input[type=checkbox]{accent-color:var(--green);width:17px;height:17px}
 .track{background:#eaf2ed;height:9px;border-radius:30px;overflow:hidden}
 .track span{display:block;height:100%;background:#2c8d71;border-radius:inherit}
 #decisoes{scroll-margin-top:12px}
+#batch-status{margin:0 0 12px;color:var(--muted);font-size:.89rem}
+.decision-heading{flex-wrap:wrap}
+.source-note{display:block;margin-top:5px;font-size:.81rem;color:var(--muted);white-space:normal}
 .decision-track{display:flex;height:12px}
 .decision-track span{border-radius:0}
 .decision-breakdown{display:flex;flex-wrap:wrap;gap:5px 12px;list-style:none;padding:0;margin:7px 0 0;font-size:.81rem;color:var(--muted)}

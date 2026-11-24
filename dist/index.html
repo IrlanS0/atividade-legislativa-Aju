@@ -50,7 +50,11 @@
       <article class="panel chart"><h3>Distribuição por tipo</h3><p>Veja a proporção de cada tipo de matéria.</p><div id="pie-chart"></div></article>
     </section>
     <section id="decisoes" aria-labelledby="decision-title">
-      <div class="section-heading"><div><h2 id="decision-title">Decisões das proposições</h2><p>Deferimentos e indeferimentos registrados no SAPL, com a cobertura da verificação.</p></div></div>
+      <div class="section-heading decision-heading">
+        <div><h2 id="decision-title">Decisões das proposições</h2><p id="decision-coverage">Selecione vereadores para acompanhar a verificação.</p></div>
+        <button id="check-decisions" class="refresh" type="button" disabled>Verificar decisões pendentes</button>
+      </div>
+      <p id="batch-status" role="status" hidden></p>
       <div class="charts">
         <article class="panel chart"><h3>Decisões por vereador</h3><p>Uma proposição em coautoria aparece para cada autor selecionado.</p><div id="decision-bars"></div></article>
         <article class="panel chart"><h3>Distribuição das decisões</h3><p>Cada proposição é contada uma vez no total.</p><div id="decision-pie"></div></article>
@@ -61,7 +65,7 @@
       <p id="empty-table" class="empty-table">Selecione vereadores para consultar as matérias.</p>
       <div id="table-wrap" hidden><div class="scroll"><table><thead><tr><th scope="col">Matéria</th><th scope="col">Autoria</th><th scope="col">Decisão</th><th scope="col">Estágio registrado</th><th scope="col">Fonte</th></tr></thead><tbody id="rows"></tbody></table></div><div class="pagination"><span id="page-info"></span><button id="prev" type="button">Anterior</button><button id="next" type="button">Próxima</button></div></div>
     </section>
-    <section id="fontes" class="coverage"><h2>Fontes e cobertura</h2><p id="coverage-text"></p><p>O ano se refere à numeração oficial da matéria. Cada matéria é contada uma vez no total e uma vez para cada autor selecionado no gráfico de barras. O estágio exibido é o documentado na fonte consultada. A ausência de registros significa que nenhuma matéria foi localizada nesta base.</p><p id="coverage-date"></p><div class="source-links"><a href="https://leg.cmaju.com.br/" target="_blank" rel="noopener">Relação oficial de vereadores</a><a href="https://www.aracaju.se.leg.br/processo-legislativo/relatorios-de-atividade-parlamenta" target="_blank" rel="noopener">Relatórios de atividade parlamentar</a></div></section>
+    <section id="fontes" class="coverage"><h2>Fontes e cobertura</h2><p id="coverage-text"></p><p>O ano se refere à numeração oficial da matéria. Cada matéria é contada uma vez no total e uma vez para cada autor selecionado no gráfico de barras. O estágio exibido é o documentado na fonte consultada. Os totais se referem às matérias disponíveis no painel.</p><p id="coverage-date"></p><div class="source-links"><a href="https://leg.cmaju.com.br/" target="_blank" rel="noopener">Relação oficial de vereadores</a><a href="https://www.aracaju.se.leg.br/processo-legislativo/relatorios-de-atividade-parlamenta" target="_blank" rel="noopener">Relatórios de atividade parlamentar</a></div></section>
     <p class="decision-method">Deferida e indeferida exigem decisão explícita no SAPL. Sem decisão registrada indica que a tramitação consultada não registra esse resultado. Não verificado indica consulta pendente, fonte indisponível ou registros inconclusivos. Os totais descrevem as matérias do recorte.</p>
     <footer>Radar Legislativo de Aracaju</footer>
   </div>

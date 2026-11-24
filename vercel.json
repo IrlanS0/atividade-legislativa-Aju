@@ -4,6 +4,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/sapl.js": { "maxDuration": 60 }
+    "api/sapl.js": { "maxDuration": 60 },
+    "api/decisao.js": { "maxDuration": 25 },
+    "api/sapl-relatorio.js": { "maxDuration": 20 }
   }
 }
