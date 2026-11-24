@@ -46,7 +46,7 @@ def load_rows(content, people):
         counts = list(map(int, (sessions, present, absent, justified, leave)))
         if int(year) != 2026 or person in attendance or min(counts) < 0 or counts[0] != sum(counts[1:]):
             raise ValueError(f'Frequência inconsistente para {name}')
-        attendance[person] = {'justified': counts[3], 'unjustified': counts[2]}
+        attendance[person] = {'sessions': counts[0], 'justified': counts[3], 'unjustified': counts[2]}
     if not attendance:
         raise ValueError('Planilha sem registros de frequência')
     return attendance
@@ -59,7 +59,10 @@ def main():
     for key, label, filename in FILES:
         with urlopen(f'{SOURCE}/{filename}/at_download/file', timeout=20) as response:
             counts = load_rows(response.read(), people)
-        periods.append({'id': key, 'label': label, 'year': 2026, 'source': f'{SOURCE}/{filename}/view', 'counts': counts})
+        periods.append({
+            'id': key, 'label': label, 'year': 2026, 'source': f'{SOURCE}/{filename}/view',
+            'sessions': max(row['sessions'] for row in counts.values()), 'counts': counts,
+        })
     (ROOT / 'dist/attendance.js').write_text(
         'export const attendance = ' + json.dumps(periods, ensure_ascii=False, indent=2) + ';\n'
     )

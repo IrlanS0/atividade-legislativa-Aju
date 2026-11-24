@@ -90,6 +90,9 @@ input[type=checkbox]{accent-color:var(--green);width:17px;height:17px}
 .attendance-unjustified .track span{background:#74569e}
 .attendance-person{border-bottom:1px solid var(--line);padding-bottom:9px}
 .attendance-source{margin-top:14px!important}
+.attendance-panel #attendance-sessions{margin-top:14px;padding:10px 12px;background:#edf5f0;border-radius:8px;color:var(--ink)}
+#attendance-sessions strong{font-size:1.25rem}
+#attendance-sessions small{display:block;margin-top:3px;color:var(--muted);font-size:.81rem}
 #batch-status{margin:0 0 12px;color:var(--muted);font-size:.89rem}
 .decision-heading{flex-wrap:wrap}
 .source-note{display:block;margin-top:5px;font-size:.81rem;color:var(--muted);white-space:normal}

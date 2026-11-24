@@ -163,6 +163,16 @@ function renderAttendance() {
   const year = $('year').value;
   const source = $('attendance-source');
   if (period) source.href = period.source;
+  const sessions = $('attendance-sessions');
+  const showSessions = period && (!year || year === String(period.year));
+  sessions.hidden = !showSessions;
+  if (showSessions) {
+    const label = period.id.endsWith('-consolidado') ? ' sessões no consolidado' : ' sessões no mês';
+    sessions.replaceChildren(make('strong', format.format(period.sessions)), document.createTextNode(label));
+    if (Object.values(period.counts).some(row => row.sessions !== period.sessions)) {
+      sessions.append(make('small', 'O total corresponde ao maior número de sessões informado na planilha. Confira o número registrado para cada vereador no gráfico.'));
+    }
+  }
   if (!selected.size || !period || (year && year !== String(period.year))) {
     const message = !selected.size ? 'Selecione vereadores para consultar as faltas.'
       : 'As planilhas de frequência disponíveis no painel são de 2026.';
@@ -182,6 +192,7 @@ function renderAttendance() {
     if (!counts) {
       group.append(make('p', 'Sem registro na planilha deste período.'));
     } else {
+      group.append(make('p', format.format(counts.sessions) + ' sessões registradas'));
       for (const [key, label] of [['justified', 'Justificadas'], ['unjustified', 'Não justificadas']]) {
         const series = make('div', undefined, 'attendance-series attendance-' + key);
         const track = make('div', undefined, 'track');
