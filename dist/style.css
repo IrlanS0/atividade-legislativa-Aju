@@ -91,6 +91,10 @@ input[type=checkbox]{accent-color:var(--green);width:17px;height:17px}
 .attendance-person{border-bottom:1px solid var(--line);padding-bottom:9px}
 .attendance-source{margin-top:14px!important}
 .payroll-list{margin:14px 0 0}
+.payroll-reference{display:grid;gap:4px;margin-top:14px;padding:12px;background:#edf5f0;border-radius:8px}
+.payroll-reference p{margin:0;color:var(--ink)}
+.payroll-reference strong{font-size:1.35rem;font-variant-numeric:tabular-nums}
+.payroll-reference a{justify-self:start;font-size:.85rem}
 .payroll-list>div{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
 .payroll-list dd{margin:0;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
 .attendance-panel #attendance-sessions{margin-top:14px;padding:10px 12px;background:#edf5f0;border-radius:8px;color:var(--ink)}
