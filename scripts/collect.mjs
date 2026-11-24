@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { catalog } from '../dist/data.js';
-import { authorCode, fetchYear, readHtml, years } from '../lib/sapl.js';
+import { authorCode, displayStage, fetchYear, readHtml, years } from '../lib/sapl.js';
 
 const exec = promisify(execFile);
 async function getHtml(url) {
@@ -16,6 +16,7 @@ async function getHtml(url) {
 
 const cache = process.argv[2];
 const cachedOnly = process.argv.includes('--cached-only');
+const decisionsOnly = process.argv.includes('--enrich-decisions');
 if (cache) await mkdir(cache, { recursive: true });
 const jobs = catalog.people.flatMap(person => years.map(year => ({ person, year })));
 async function collect({ person, year }) {
@@ -57,11 +58,22 @@ for (const { person, rows } of results) {
   }
 }
 if (!records.size) throw new Error('Nenhuma matéria retornada nas consultas');
+for (const matter of records.values()) matter.authors = [...new Set(matter.authors)];
 const updated = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo' }).format();
 const sorted = [...records.values()].sort((a, b) => b.year - a.year || a.type.localeCompare(b.type, 'pt-BR') || b.number - a.number);
 const missing = pending.map(({ person, year }) => ({ id: person.id, year }));
 const archive = catalog.archive ?? catalog.records;
-const snapshot = { updated, people: catalog.people, records: sorted, missing, archive };
+const snapshot = decisionsOnly ? {
+  ...catalog,
+  records: catalog.records.map(record => {
+    const { decisionDate: oldDate, decision: oldDecision, ...previous } = record;
+    const latest = records.get(record.id);
+    const decision = latest ? latest.decision : oldDecision;
+    const decisionDate = latest ? latest.decisionDate : oldDate;
+    const stage = displayStage(latest?.stage ?? previous.stage);
+    return { ...previous, stage, decision: decision ?? 'unverified', ...(decisionDate && { decisionDate }) };
+  }),
+} : { updated, people: catalog.people, records: sorted, missing, archive };
 const output = new URL('../dist/data.js', import.meta.url);
 const temporary = new URL('../dist/data.js.tmp', import.meta.url);
 const source = 'export const catalog = ' + JSON.stringify(snapshot) + ';\n';
@@ -71,4 +83,4 @@ await writeFile(archiveTemporary, gzipSync(source));
 await rename(archiveTemporary, archiveOutput);
 await writeFile(temporary, source);
 await rename(temporary, output);
-console.log(sorted.length, 'matérias distintas em', results.length, 'consultas vereador/ano');
+console.log(sorted.length, 'matérias distintas consultadas em', results.length, 'consultas vereador/ano');

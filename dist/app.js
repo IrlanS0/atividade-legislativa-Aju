@@ -15,6 +15,15 @@ const people = catalog.people.toSorted((a, b) => collator.compare(a.name, b.name
 const byPerson = new Map(people.map(p => [p.id, p]));
 const types = [...new Set([...catalog.records, ...(catalog.archive ?? [])].map(r => r.type))].sort(collator.compare);
 const colors = ['#197a60', '#39799a', '#cc8429', '#6c5c9b', '#a84b67', '#5b7340', '#537179', '#a56143'];
+const decisions = {
+  deferida: { label: 'Deferida', color: '#197a60' },
+  indeferida: { label: 'Indeferida', color: '#6c5c9b' },
+  unrecorded: { label: 'Sem decisão registrada', color: '#527d97' },
+  unverified: { label: 'Não verificado', color: '#9d783d' },
+};
+const decisionKeys = Object.keys(decisions);
+const checkedDecisions = new Map();
+const checkingDecisions = new Set();
 const selected = new Set();
 const live = new Map();
 const missing = new Set((catalog.missing ?? []).map(({ id, year }) => id + '/' + year));
@@ -104,6 +113,98 @@ function emptyChart(symbol, message) {
   return box;
 }
 
+function decisionFor(record) {
+  const verified = checkedDecisions.get(record.id) ?? record;
+  const explicit = record.decision === 'deferida' || record.decision === 'indeferida';
+  const newer = explicit && (verified.decision === 'unrecorded'
+    || (record.decisionDate && record.decisionDate > (verified.decisionDate ?? '')));
+  const current = newer ? record : verified;
+  return Object.hasOwn(decisions, current.decision) ? current : { decision: 'unverified' };
+}
+
+function dateLabel(iso) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(iso ?? '') ? iso.split('-').reverse().join('/') : '';
+}
+
+function renderPie(target, entries, total) {
+  const layout = make('div', undefined, 'pie-layout');
+  const ring = make('div', undefined, 'pie');
+  ring.setAttribute('aria-hidden', 'true');
+  ring.append(make('span', format.format(total)));
+  const legend = make('ul', undefined, 'legend');
+  const segments = [];
+  let end = 0;
+  for (const { label, count, color } of entries) {
+    const fraction = count / total;
+    const start = end;
+    end += fraction * 100;
+    const entry = make('li');
+    const dot = make('i');
+    dot.style.backgroundColor = color;
+    entry.append(dot, make('span', label), make('strong', format.format(count) + ' · ' + percent.format(fraction)));
+    legend.append(entry);
+    if (count) segments.push(color + ' ' + start + '% ' + end + '%');
+  }
+  ring.style.background = 'conic-gradient(' + segments.join(', ') + ')';
+  layout.append(ring, legend);
+  target.replaceChildren(layout);
+}
+
+function renderDecisionCharts() {
+  const bars = $('decision-bars');
+  const pie = $('decision-pie');
+  if (!filtered.length) {
+    const message = selected.size ? 'Nenhuma matéria no recorte selecionado.' : 'Selecione vereadores para ver as decisões.';
+    bars.replaceChildren(emptyChart('▥', message));
+    pie.replaceChildren(emptyChart('◔', message));
+    return;
+  }
+  const blank = () => Object.fromEntries(decisionKeys.map(key => [key, 0]));
+  const totals = blank();
+  const byAuthor = new Map(people.filter(person => selected.has(person.id)).map(person => [person.id, blank()]));
+  for (const record of filtered) {
+    const { decision } = decisionFor(record);
+    totals[decision]++;
+    for (const id of record.authors) {
+      const counts = byAuthor.get(id);
+      if (counts) counts[decision]++;
+    }
+  }
+  const groups = [...byAuthor].map(([id, counts]) => ({
+    id, counts, sum: decisionKeys.reduce((sum, key) => sum + counts[key], 0),
+  }));
+  const largest = Math.max(1, ...groups.map(group => group.sum));
+  const rows = make('div', undefined, 'bars');
+  for (const { id, counts, sum } of groups) {
+    const row = make('div');
+    const caption = make('div', undefined, 'bar-caption');
+    const partial = missingYears(id).length ? ' · parcial' : '';
+    caption.append(make('span', byPerson.get(id).name), make('span', format.format(sum) + partial));
+    const track = make('div', undefined, 'track decision-track');
+    track.setAttribute('aria-hidden', 'true');
+    const keyList = make('ul', undefined, 'decision-breakdown');
+    for (const key of decisionKeys) {
+      const { label, color } = decisions[key];
+      const count = counts[key];
+      if (count) {
+        const segment = make('span');
+        segment.style.width = (count / largest * 100) + '%';
+        segment.style.backgroundColor = color;
+        track.append(segment);
+      }
+      const entry = make('li');
+      const dot = make('i');
+      dot.style.backgroundColor = color;
+      entry.append(dot, make('span', label + ' · ' + format.format(count)));
+      keyList.append(entry);
+    }
+    row.append(caption, track, keyList);
+    rows.append(row);
+  }
+  bars.replaceChildren(rows);
+  renderPie(pie, decisionKeys.map(key => ({ ...decisions[key], count: totals[key] })), filtered.length);
+}
+
 function renderCharts() {
   const bars = $('bar-chart');
   const pie = $('pie-chart');
@@ -144,27 +245,54 @@ function renderCharts() {
     pie.replaceChildren(emptyChart('◔', 'Nenhuma matéria no recorte selecionado.'));
     return;
   }
-  const layout = make('div', undefined, 'pie-layout');
-  const ring = make('div', undefined, 'pie');
-  ring.setAttribute('aria-hidden', 'true');
-  ring.append(make('span', format.format(filtered.length)));
-  const legend = make('ul', undefined, 'legend');
-  let end = 0;
-  const segments = [...categories].sort((a, b) => b[1] - a[1] || collator.compare(a[0], b[0])).map(([label, count]) => {
-    const color = colors[types.indexOf(label) % colors.length];
-    const start = end;
-    const fraction = count / filtered.length;
-    end += fraction * 100;
-    const entry = make('li');
-    const dot = make('i');
-    dot.style.backgroundColor = color;
-    entry.append(dot, make('span', label), make('strong', format.format(count) + ' · ' + percent.format(fraction)));
-    legend.append(entry);
-    return color + ' ' + start + '% ' + end + '%';
-  });
-  ring.style.background = 'conic-gradient(' + segments.join(', ') + ')';
-  layout.append(ring, legend);
-  pie.replaceChildren(layout);
+  const entries = [...categories].sort((a, b) => b[1] - a[1] || collator.compare(a[0], b[0]))
+    .map(([label, count]) => ({ label, count, color: colors[types.indexOf(label) % colors.length] }));
+  renderPie(pie, entries, filtered.length);
+}
+
+function fillDecisionCell(cell, record) {
+  const { decision, decisionDate } = decisionFor(record);
+  cell.replaceChildren(make('span', decisions[decision].label, 'decision-label'));
+  const date = dateLabel(decisionDate);
+  if (date) {
+    const time = make('time', date, 'decision-date');
+    time.dateTime = decisionDate;
+    cell.append(time);
+  }
+  if (decision !== 'unverified' || !record.id) return;
+  const checking = checkingDecisions.has(record.id);
+  const button = make('button', checking ? 'Verificando…' : 'Verificar no SAPL', 'link');
+  button.type = 'button';
+  button.disabled = checking;
+  button.setAttribute('aria-label', 'Verificar decisão de ' + record.type + ' ' + record.number + '/' + record.year);
+  button.addEventListener('click', () => verifyDecision(cell, record, button));
+  cell.append(button);
+}
+
+async function verifyDecision(cell, record, button) {
+  if (checkingDecisions.has(record.id)) return;
+  checkingDecisions.add(record.id);
+  button.disabled = true;
+  button.textContent = 'Verificando…';
+  let verified = { decision: 'unverified' };
+  try {
+    const url = '/api/decisao?' + new URLSearchParams({ materia: record.id });
+    const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
+    const result = response.ok ? await response.json() : null;
+    if (result && Object.hasOwn(decisions, result.decision)) verified = result;
+  } catch {
+    // The row remains unverified if its official record cannot be read.
+  }
+  if (verified.decision !== 'unverified') checkedDecisions.set(record.id, verified);
+  checkingDecisions.delete(record.id);
+  const visibleCell = document.getElementById('decision-' + record.id);
+  if (visibleCell) {
+    const restoreFocus = cell === visibleCell && (document.activeElement === button || document.activeElement === document.body);
+    fillDecisionCell(visibleCell, record);
+    if (restoreFocus) (visibleCell.querySelector('button') ?? visibleCell).focus();
+  }
+  $('decision-status').textContent = record.type + ' ' + record.number + '/' + record.year + '. ' + decisions[verified.decision].label + '.';
+  renderDecisionCharts();
 }
 
 function renderTable() {
@@ -184,13 +312,19 @@ function renderTable() {
     const row = make('tr');
     const matter = make('td');
     matter.append(make('strong', record.type + ' ' + record.number + '/' + record.year), make('span', record.subject));
+    const decision = make('td', undefined, 'decision-cell');
+    if (record.id) {
+      decision.id = 'decision-' + record.id;
+      decision.tabIndex = -1;
+    }
+    fillDecisionCell(decision, record);
     const source = make('td');
     const link = make('a', record.sourceLabel);
     link.href = record.source;
     link.target = '_blank';
     link.rel = 'noopener';
     source.append(link);
-    row.append(matter, make('td', authors(record)), make('td', record.stage), source);
+    row.append(matter, make('td', authors(record)), decision, make('td', record.stage), source);
     return row;
   }));
   $('page-info').textContent = (start + 1) + '–' + Math.min(start + pageSize, filtered.length) + ' de ' + format.format(filtered.length);
@@ -292,6 +426,7 @@ function update() {
   $('authors').textContent = active ? format.format(selected.size) : '—';
   renderSelection();
   renderCharts();
+  renderDecisionCharts();
   renderTable();
 }
 
@@ -317,8 +452,11 @@ $('clear').addEventListener('click', () => {
 $('prev').addEventListener('click', () => { page--; renderTable(); });
 $('next').addEventListener('click', () => { page++; renderTable(); });
 $('export').addEventListener('click', () => {
-  const lines = [['Tipo', 'Número', 'Ano', 'Assunto', 'Autoria', 'Estágio registrado', 'Fonte'],
-    ...filtered.map(r => [r.type, r.number, r.year, r.subject, authors(r), r.stage, r.source])];
+  const lines = [['Tipo', 'Número', 'Ano', 'Assunto', 'Autoria', 'Decisão', 'Data da decisão', 'Estágio registrado', 'Fonte'],
+    ...filtered.map(r => {
+      const { decision, decisionDate } = decisionFor(r);
+      return [r.type, r.number, r.year, r.subject, authors(r), decisions[decision].label, dateLabel(decisionDate), r.stage, r.source];
+    })];
   const quote = value => {
     const text = String(value);
     const literal = /^[=+\-@\t\r]/.test(text) ? "'" + text : text;
