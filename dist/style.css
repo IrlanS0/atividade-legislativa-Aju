@@ -80,6 +80,16 @@ input[type=checkbox]{accent-color:var(--green);width:17px;height:17px}
 .track{background:#eaf2ed;height:9px;border-radius:30px;overflow:hidden}
 .track span{display:block;height:100%;background:#2c8d71;border-radius:inherit}
 #decisoes{scroll-margin-top:12px}
+.attendance-panel{margin-top:15px;scroll-margin-top:12px}
+.attendance-panel label{min-width:min(240px,100%);font-size:.88rem;font-weight:650}
+.attendance-panel .record-head{flex-wrap:wrap}
+.attendance-series{display:grid;grid-template-columns:minmax(115px,9rem) minmax(20px,1fr) 2.5rem;gap:9px;align-items:center;margin:7px 0;font-size:.86rem}
+.attendance-series strong{text-align:right;font-variant-numeric:tabular-nums}
+.attendance-series .track{height:12px}
+.attendance-justified .track span{background:#24796c}
+.attendance-unjustified .track span{background:#74569e}
+.attendance-person{border-bottom:1px solid var(--line);padding-bottom:9px}
+.attendance-source{margin-top:14px!important}
 #batch-status{margin:0 0 12px;color:var(--muted);font-size:.89rem}
 .decision-heading{flex-wrap:wrap}
 .source-note{display:block;margin-top:5px;font-size:.81rem;color:var(--muted);white-space:normal}

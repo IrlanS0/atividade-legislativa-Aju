@@ -14,6 +14,7 @@
   <nav aria-label="Navegação principal">
     <a href="#inicio" class="active"><span aria-hidden="true">▦</span> Visão geral</a>
     <a href="#decisoes"><span aria-hidden="true">◔</span> Decisões</a>
+    <a href="#frequencia"><span aria-hidden="true">▥</span> Frequência</a>
     <a href="#materias"><span aria-hidden="true">▤</span> Matérias</a>
     <a href="#fontes"><span aria-hidden="true">◎</span> Fontes e cobertura</a>
   </nav>
@@ -59,6 +60,14 @@
         <article class="panel chart"><h3>Decisões por vereador</h3><p>Uma proposição em coautoria aparece para cada autor selecionado.</p><div id="decision-bars"></div></article>
         <article class="panel chart"><h3>Distribuição das decisões</h3><p>Cada proposição é contada uma vez no total.</p><div id="decision-pie"></div></article>
       </div>
+    </section>
+    <section id="frequencia" class="panel chart attendance-panel" aria-labelledby="attendance-title">
+      <div class="record-head">
+        <div><h2 id="attendance-title">Faltas às sessões</h2><p>Faltas dos vereadores selecionados conforme a frequência oficial da Câmara.</p></div>
+        <label for="attendance-period">Período<span class="select"><select id="attendance-period"></select></span></label>
+      </div>
+      <div id="attendance-chart"></div>
+      <p class="attendance-source">As licenças são registradas em uma categoria própria. <a id="attendance-source" href="https://www.aracaju.se.leg.br/processo-legislativo/presenca-dos-parlamentares" target="_blank" rel="noopener">Planilha oficial de frequência</a></p>
     </section>
     <section id="materias" class="panel records"><div class="record-head"><div><h2>Matérias legislativas</h2><p>Confira a autoria, a decisão e o estágio registrado na fonte.</p></div><button id="export" type="button" disabled>Baixar CSV</button></div>
       <p id="decision-status" class="visually-hidden" role="status"></p>

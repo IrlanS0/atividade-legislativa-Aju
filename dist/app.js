@@ -1,4 +1,5 @@
 import { catalog } from './data.js';
+import { attendance } from './attendance.js';
 
 const $ = id => document.getElementById(id);
 const make = (tag, value, className) => {
@@ -47,6 +48,7 @@ let refreshing = false;
 let verifyingBatch = false;
 
 for (const type of types) $('type').add(new Option(type, type));
+for (const period of attendance) $('attendance-period').add(new Option(period.label, period.id));
 $('coverage-text').textContent = 'O painel cruza a busca de matérias do SAPL com o relatório anual oficial. Matérias do relatório podem ter a situação pendente de consulta. As linhas sinalizadas usam a base anterior em pelo menos uma autoria selecionada.';
 $('coverage-date').textContent = 'Base do SAPL coletada em ' + catalog.updated + '.';
 
@@ -153,6 +155,47 @@ function emptyChart(symbol, message) {
   icon.setAttribute('aria-hidden', 'true');
   box.append(icon, make('div', message));
   return box;
+}
+
+function renderAttendance() {
+  const chart = $('attendance-chart');
+  const period = attendance.find(item => item.id === $('attendance-period').value);
+  const year = $('year').value;
+  const source = $('attendance-source');
+  if (period) source.href = period.source;
+  if (!selected.size || !period || (year && year !== String(period.year))) {
+    const message = !selected.size ? 'Selecione vereadores para consultar as faltas.'
+      : 'As planilhas de frequência disponíveis no painel são de 2026.';
+    chart.replaceChildren(emptyChart('▥', message));
+    return;
+  }
+  const shown = people.filter(person => selected.has(person.id));
+  const max = Math.max(1, ...shown.flatMap(person => {
+    const counts = period.counts[person.id];
+    return counts ? [counts.justified, counts.unjustified] : [];
+  }));
+  const groups = make('div', undefined, 'bars');
+  for (const person of shown) {
+    const group = make('div', undefined, 'attendance-person');
+    group.append(make('h3', person.name));
+    const counts = period.counts[person.id];
+    if (!counts) {
+      group.append(make('p', 'Sem registro na planilha deste período.'));
+    } else {
+      for (const [key, label] of [['justified', 'Justificadas'], ['unjustified', 'Não justificadas']]) {
+        const series = make('div', undefined, 'attendance-series attendance-' + key);
+        const track = make('div', undefined, 'track');
+        track.setAttribute('aria-hidden', 'true');
+        const bar = make('span');
+        bar.style.width = (counts[key] / max * 100) + '%';
+        track.append(bar);
+        series.append(make('span', label), track, make('strong', format.format(counts[key])));
+        group.append(series);
+      }
+    }
+    groups.append(group);
+  }
+  chart.replaceChildren(groups);
 }
 
 function decisionFor(record) {
@@ -579,6 +622,7 @@ function update() {
   renderCharts();
   renderDecisionCharts();
   renderTable();
+  renderAttendance();
 }
 
 $('people-button').addEventListener('click', () => setMenu($('people-menu').hidden));
@@ -591,6 +635,7 @@ document.addEventListener('click', event => {
   if (!event.target.closest('.people') && !$('people-menu').hidden) setMenu(false);
 });
 $('year').addEventListener('change', update);
+$('attendance-period').addEventListener('change', renderAttendance);
 $('type').addEventListener('change', update);
 $('refresh').addEventListener('click', refresh);
 $('check-decisions').addEventListener('click', verifyDecisionBatch);
